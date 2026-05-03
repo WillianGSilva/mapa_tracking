@@ -1,0 +1,1071 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Mapa de Tracking</title>
+
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css">
+
+  <style>
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #0b1020;
+      overflow: hidden;
+    }
+
+    .topbar {
+      min-height: 68px;
+      background: #151515;
+      color: white;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 10px 26px;
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+      z-index: 1200;
+      position: relative;
+    }
+
+    .topbar h1 {
+      margin: 0;
+      font-size: 20px;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+      white-space: nowrap;
+    }
+
+    .topbar-right {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 13px;
+      color: #d1d5db;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .topbar-right select,
+    .topbar-right input,
+    .topbar-right button {
+      height: 34px;
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.14);
+      color: #e5e7eb;
+      border-radius: 10px;
+      padding: 0 10px;
+      outline: none;
+      font-size: 12px;
+    }
+
+    .topbar-right select {
+      min-width: 135px;
+    }
+
+    .topbar-right input {
+      width: 120px;
+    }
+
+    .topbar-right input::placeholder {
+      color: #9ca3af;
+    }
+
+    .topbar-right button {
+      cursor: pointer;
+      background: #00d4ff;
+      color: #001219;
+      font-weight: 900;
+      border: none;
+    }
+
+    .topbar-right label {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      white-space: nowrap;
+    }
+
+    .status {
+      font-size: 13px;
+      color: #9ca3af;
+      white-space: nowrap;
+    }
+
+    #map {
+      width: 100%;
+      height: calc(100vh - 68px);
+      background: #0b1020;
+    }
+
+    #sidebar {
+      position: absolute;
+      top: 92px;
+      left: 22px;
+      width: 300px;
+      max-height: calc(100vh - 120px);
+      overflow-y: auto;
+      background: rgba(18, 18, 18, 0.88);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 18px;
+      padding: 14px;
+      color: white;
+      box-shadow: 0 18px 45px rgba(0,0,0,0.45);
+      z-index: 1000;
+    }
+
+    .sidebar-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 14px;
+    }
+
+    .sidebar-title {
+      font-size: 18px;
+      font-weight: 900;
+    }
+
+    .online-pill {
+      background: #00e5ff;
+      color: #001219;
+      font-size: 10px;
+      font-weight: 900;
+      padding: 7px 10px;
+      border-radius: 999px;
+    }
+
+    .motorista-card {
+      background: rgba(255,255,255,0.055);
+      border: 1px solid rgba(255,255,255,0.07);
+      border-radius: 14px;
+      padding: 14px;
+      margin-bottom: 12px;
+      cursor: pointer;
+      transition: 0.2s;
+    }
+
+    .motorista-card:hover {
+      background: rgba(0, 212, 255, 0.12);
+      border-color: rgba(0, 212, 255, 0.55);
+      transform: translateY(-1px);
+    }
+
+    .motorista-card.ativo {
+      background: rgba(0, 212, 255, 0.16);
+      border-color: #00d4ff;
+    }
+
+    .motorista-top {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .motorista-nome {
+      font-size: 16px;
+      font-weight: 900;
+      color: #f9fafb;
+    }
+
+    .motorista-meta {
+      font-size: 12px;
+      color: #b6bac4;
+      margin-top: 8px;
+      line-height: 1.55;
+    }
+
+    .badge {
+      font-size: 10px;
+      font-weight: 900;
+      padding: 6px 8px;
+      border-radius: 5px;
+      white-space: nowrap;
+    }
+
+    .badge-aberto {
+      background: rgba(34, 197, 94, 0.20);
+      color: #4ade80;
+    }
+
+    .badge-finalizado {
+      background: rgba(59, 130, 246, 0.20);
+      color: #60a5fa;
+    }
+
+    .pulse-marker {
+      position: relative;
+      width: 42px;
+      height: 42px;
+    }
+
+    .pulse {
+      position: absolute;
+      width: 42px;
+      height: 42px;
+      background: rgba(0, 212, 255, 0.35);
+      border-radius: 50%;
+      animation: pulse 1.5s infinite;
+    }
+
+    .driver-icon {
+      position: absolute;
+      width: 28px;
+      height: 28px;
+      top: 7px;
+      left: 7px;
+      background: #00d4ff;
+      border: 2px solid white;
+      border-radius: 9px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #001219;
+      font-weight: 900;
+      font-size: 15px;
+      box-shadow: 0 8px 22px rgba(0,0,0,0.45);
+    }
+
+    @keyframes pulse {
+      0% { transform: scale(0.55); opacity: 0.9; }
+      100% { transform: scale(2.2); opacity: 0; }
+    }
+
+    .leaflet-control-zoom {
+      margin-top: 18px !important;
+      margin-right: 18px !important;
+      border: none !important;
+      box-shadow: 0 10px 28px rgba(0,0,0,0.45) !important;
+    }
+
+    .leaflet-control-zoom a {
+      background: rgba(18,18,18,0.88) !important;
+      color: white !important;
+      border-color: rgba(255,255,255,0.12) !important;
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+    }
+
+    .leaflet-popup-content-wrapper {
+      background: linear-gradient(
+        135deg,
+        rgba(255,255,255,0.12),
+        rgba(255,255,255,0.05)
+      ) !important;
+      backdrop-filter: blur(20px) saturate(180%);
+      -webkit-backdrop-filter: blur(20px) saturate(180%);
+      border: 1px solid rgba(255,255,255,0.18);
+      border-radius: 14px;
+      box-shadow: 0 12px 30px rgba(0,0,0,0.45);
+    }
+
+    .leaflet-popup-tip {
+      background: rgba(255,255,255,0.12) !important;
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+    }
+
+    .leaflet-popup-content {
+      margin: 8px 10px;
+      min-width: 200px;
+      max-width: 240px;
+      font-size: 12px;
+      color: #f1f5f9;
+    }
+
+    .leaflet-popup-close-button {
+      color: #e5e7eb !important;
+      font-size: 18px !important;
+      padding: 6px 8px 0 0 !important;
+    }
+
+    .popup-title {
+      font-size: 13px;
+      margin-bottom: 4px;
+      color: #e2e8f0;
+      font-weight: 900;
+    }
+
+    .popup-line {
+      font-size: 12px;
+      margin: 2px 0;
+    }
+
+    .popup-line b {
+      font-weight: 900;
+    }
+
+    .filtros-box {
+    display: flex;
+    align-items: flex-end;
+    gap: 10px;
+    flex-wrap: wrap;
+    }
+
+    .filtro-group {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    }
+
+    .filtro-group label {
+    font-size: 10px;
+    color: #9ca3af;
+    font-weight: 600;
+    }
+
+    .filtro-group input,
+    .filtro-group select {
+    height: 34px;
+    min-width: 110px;
+    }
+
+    .switch-group {
+    flex-direction: row;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 4px;
+    }
+
+    /* SWITCH ESTILO APP */
+    .switch {
+    position: relative;
+    width: 36px;
+    height: 18px;
+    }
+
+    .switch input {
+    display: none;
+    }
+
+    .slider {
+    position: absolute;
+    cursor: pointer;
+    background-color: #444;
+    border-radius: 20px;
+    width: 100%;
+    height: 100%;
+    transition: 0.3s;
+    }
+
+    .slider:before {
+    content: "";
+    position: absolute;
+    height: 12px;
+    width: 12px;
+    left: 3px;
+    top: 3px;
+    background-color: white;
+    border-radius: 50%;
+    transition: 0.3s;
+    }
+
+    .switch input:checked + .slider {
+    background-color: #00d4ff;
+    }
+
+    .switch input:checked + .slider:before {
+    transform: translateX(18px);
+    }
+
+    .topbar-right select option {
+    background: #151515;
+    color: #e5e7eb;
+    }
+
+    #painelEntregas {
+    position: absolute;
+    top: 92px;
+    right: 22px;
+    width: 340px;
+    max-height: calc(100vh - 120px);
+    overflow-y: auto;
+    background: rgba(18,18,18,0.9);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 18px;
+    padding: 14px;
+    color: white;
+    box-shadow: 0 18px 45px rgba(0,0,0,0.45);
+    z-index: 1000;
+    display: none;
+    }
+
+    .entregas-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+    }
+
+    .entregas-title {
+    font-size: 16px;
+    font-weight: 900;
+    }
+
+    .entregas-close {
+    cursor: pointer;
+    color: #9ca3af;
+    font-size: 18px;
+    }
+
+    .entregas-resumo {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+    margin-bottom: 12px;
+    }
+
+    .entrega-kpi {
+    background: rgba(255,255,255,0.06);
+    border-radius: 12px;
+    padding: 10px;
+    }
+
+    .entrega-kpi span {
+    display: block;
+    font-size: 11px;
+    color: #9ca3af;
+    }
+
+    .entrega-kpi strong {
+    font-size: 18px;
+    }
+
+    .entrega-item {
+    background: rgba(255,255,255,0.055);
+    border: 1px solid rgba(255,255,255,0.07);
+    border-radius: 12px;
+    padding: 10px;
+    margin-bottom: 8px;
+    font-size: 12px;
+    color: #d1d5db;
+    }
+
+    .status-baixada { color: #4ade80; font-weight: 900; }
+    .status-ocorrencia { color: #f97316; font-weight: 900; }
+    .status-pendente { color: #facc15; font-weight: 900; }
+
+  </style>
+</head>
+
+<body>
+
+<div class="topbar">
+  <h1>QRota Tracking</h1>
+
+  <div class="topbar-right">
+
+    <div class="filtros-box">
+
+        <div class="filtro-group">
+        <label>Atividade</label>
+        <select id="filtroAtividade"></select>
+        </div>
+
+        <div class="filtro-group">
+        <label>Origem</label>
+        <select id="filtroOrigem"></select>
+        </div>
+
+        <div class="filtro-group">
+        <label>Viagem</label>
+        <input id="filtroViagem" placeholder="Buscar">
+        </div>
+
+        <div class="filtro-group">
+        <label>Romaneio</label>
+        <input id="filtroRomaneio" placeholder="Buscar">
+        </div>
+
+        <div class="filtro-group switch-group">
+        <span>Status</span>
+        <label class="switch">
+            <input type="checkbox" id="filtroAbertos">
+            <span class="slider"></span>
+        </label>
+        <span>Somente abertos</span>
+        </div>
+
+        <button id="btnFiltrar">Filtrar</button>
+
+    </div>
+
+    <div class="status" id="status">Carregando...</div>
+
+    </div>
+</div>
+
+<div id="sidebar">
+  <div class="sidebar-header">
+    <div class="sidebar-title">Monitorados</div>
+    <div class="online-pill" id="qtdOnline">0 ONLINE</div>
+  </div>
+
+  <div id="listaMotoristas"></div>
+</div>
+
+<div id="painelEntregas">
+  <div class="entregas-header">
+    <div class="entregas-title">Entregas do Romaneio</div>
+    <div class="entregas-close" onclick="fecharPainelEntregas()">×</div>
+  </div>
+
+  <div id="resumoEntregas" class="entregas-resumo"></div>
+  <div id="listaEntregas"></div>
+</div>
+
+<div id="map"></div>
+
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+
+<script>
+const API_BASE = "http://204.216.191.191:5678/webhook";
+
+const map = L.map("map", {
+  zoomControl: false
+}).setView([-23.55, -46.63], 8);
+
+L.control.zoom({
+  position: "topright"
+}).addTo(map);
+
+L.tileLayer("https://tiles.stadiamaps.com/tiles/alidade_smooth_dark/{z}/{x}/{y}{r}.png", {
+  maxZoom: 19,
+  attribution: "© OpenStreetMap © CARTO"
+}).addTo(map);
+
+const markers = {};
+let linhaTrajeto = null;
+let cardAtivo = null;
+let pontosEntregas = [];
+
+function corrigirCoordenada(valor) {
+  if (!valor) return null;
+
+  let n = Number(String(valor).replace(",", "."));
+  if (isNaN(n)) return null;
+
+  while (Math.abs(n) > 180) n = n / 10;
+
+  return n;
+}
+
+function formatarData(valor) {
+  if (!valor) return "-";
+
+  if (String(valor).includes("GMT")) {
+    const data = new Date(valor);
+
+    const dia = String(data.getUTCDate()).padStart(2, "0");
+    const mes = String(data.getUTCMonth() + 1).padStart(2, "0");
+    const ano = data.getUTCFullYear();
+
+    const hora = String(data.getUTCHours()).padStart(2, "0");
+    const min = String(data.getUTCMinutes()).padStart(2, "0");
+
+    return `${dia}/${mes}/${ano} ${hora}:${min}`;
+  }
+
+  const texto = String(valor).replace("T", " ");
+  const [dataParte, horaParte] = texto.split(" ");
+
+  if (!dataParte || !horaParte) return valor;
+
+  const [ano, mes, dia] = dataParte.split("-");
+  const [hora, min] = horaParte.split(":");
+
+  return `${dia}/${mes}/${ano} ${hora}:${min}`;
+}
+
+const iconAberto = L.divIcon({
+  html: `
+    <div class="pulse-marker">
+      <div class="pulse"></div>
+      <div class="driver-icon">▲</div>
+    </div>
+  `,
+  className: "",
+  iconSize: [42, 42],
+  iconAnchor: [21, 21]
+});
+
+const iconFinalizado = L.divIcon({
+  html: `
+    <div style="
+      width:28px;
+      height:28px;
+      background:#2563eb;
+      border:2px solid white;
+      border-radius:50% 50% 50% 0;
+      transform:rotate(-45deg);
+      box-shadow:0 8px 22px rgba(0,0,0,0.45);
+    ">
+      <div style="
+        width:10px;
+        height:10px;
+        background:white;
+        border-radius:50%;
+        margin:7px;
+      "></div>
+    </div>
+  `,
+  className: "",
+  iconSize: [28, 28],
+  iconAnchor: [14, 28]
+});
+
+const iconEntregaBaixada = L.divIcon({
+  html: `<div style="width:14px;height:14px;background:#4ade80;border:2px solid white;border-radius:50%;box-shadow:0 0 12px rgba(74,222,128,.8);"></div>`,
+  className: "",
+  iconSize: [14, 14],
+  iconAnchor: [7, 7]
+});
+
+const iconEntregaOcorrencia = L.divIcon({
+  html: `<div style="width:14px;height:14px;background:#f97316;border:2px solid white;border-radius:50%;box-shadow:0 0 12px rgba(249,115,22,.8);"></div>`,
+  className: "",
+  iconSize: [14, 14],
+  iconAnchor: [7, 7]
+});
+
+const iconEntregaPendente = L.divIcon({
+  html: `<div style="width:14px;height:14px;background:#facc15;border:2px solid white;border-radius:50%;box-shadow:0 0 12px rgba(250,204,21,.8);"></div>`,
+  className: "",
+  iconSize: [14, 14],
+  iconAnchor: [7, 7]
+});
+
+function montarPopup(item, lat, lon) {
+  return `
+    <div class="popup-title">${item.placa || "Sem placa"}</div>
+
+    <div class="popup-line"><b>Status:</b> ${item.status_romaneio || "-"}</div>
+    <div class="popup-line"><b>Atividade:</b> ${item.atividade || "-"}</div>
+    <div class="popup-line"><b>Motorista:</b> ${item.idmotorista || "-"}</div>
+    <div class="popup-line"><b>Lat:</b> ${lat}</div>
+    <div class="popup-line"><b>Lon:</b> ${lon}</div>
+
+    <hr style="border:0; border-top:1px solid rgba(255,255,255,0.18); margin:6px 0;">
+
+    <div class="popup-line"><b>Romaneio:</b> ${item.romaneio || "-"}</div>
+    <div class="popup-line"><b>Viagem:</b> ${item.id_viagem || "-"}</div>
+    <div class="popup-line"><b>Origem:</b> ${item.origem || "-"}</div>
+    <div class="popup-line"><b>Destino:</b> ${item.destino || "-"}</div>
+    <div class="popup-line"><b>Última posição:</b> ${formatarData(item.datahora)}</div>
+  `;
+}
+
+async function carregarTrajeto(romaneio) {
+  if (!romaneio || romaneio === "-") return;
+
+  try {
+    const res = await fetch(`${API_BASE}/qrota-trajeto?romaneio=${encodeURIComponent(romaneio)}`);
+    const dados = await res.json();
+
+    const pontos = dados.map(p => {
+      const lat = corrigirCoordenada(p.lat);
+      const lon = corrigirCoordenada(p.lon);
+      return lat && lon ? [lat, lon] : null;
+    }).filter(Boolean);
+
+    if (linhaTrajeto) {
+      map.removeLayer(linhaTrajeto);
+      linhaTrajeto = null;
+    }
+
+    if (pontos.length < 2) {
+      console.warn("Sem pontos suficientes para trajeto:", romaneio);
+      return;
+    }
+
+    linhaTrajeto = L.polyline(pontos, {
+      weight: 5,
+      opacity: 0.95,
+      color: "#008cff",
+      dashArray: "12, 10"
+    }).addTo(map);
+
+    map.fitBounds(linhaTrajeto.getBounds(), {
+      padding: [90, 90]
+    });
+
+  } catch (erro) {
+    console.error("Erro ao carregar trajeto:", erro);
+  }
+}
+
+function limparTrajeto() {
+  if (linhaTrajeto) {
+    map.removeLayer(linhaTrajeto);
+    linhaTrajeto = null;
+  }
+
+  limparPontosEntregas();
+}
+
+function limparPontosEntregas() {
+  pontosEntregas.forEach(marker => {
+    map.removeLayer(marker);
+  });
+
+  pontosEntregas = [];
+}
+
+function desenharPontosEntregas(entregas) {
+  limparPontosEntregas();
+
+  (entregas || []).forEach(entrega => {
+    const lat = corrigirCoordenada(entrega.lat);
+    const lon = corrigirCoordenada(entrega.lon);
+
+    if (!lat || !lon) return;
+
+    let icon = iconEntregaPendente;
+
+    if (entrega.status_entrega === "BAIXADA") {
+      icon = iconEntregaBaixada;
+    }
+
+    if (entrega.status_entrega === "OCORRENCIA") {
+      icon = iconEntregaOcorrencia;
+    }
+
+    const popup = `
+      <div class="popup-title">Entrega ${entrega.id_pedido || "-"}</div>
+      <div class="popup-line"><b>Status:</b> ${entrega.status_entrega || "-"}</div>
+      <div class="popup-line"><b>NF/Controle:</b> ${entrega.numerocontrole || "-"}</div>
+      <div class="popup-line"><b>Destino:</b> ${entrega.destinatario || "-"}</div>
+      <div class="popup-line"><b>Cidade:</b> ${entrega.cidade || "-"} / ${entrega.uf || "-"}</div>
+    `;
+
+    const marker = L.marker([lat, lon], { icon })
+      .addTo(map)
+      .bindPopup(popup);
+
+    pontosEntregas.push(marker);
+  });
+}
+
+function fecharPainelEntregas() {
+  document.getElementById("painelEntregas").style.display = "none";
+  limparPontosEntregas();
+}
+
+async function carregarEntregasRomaneio(romaneio) {
+  if (!romaneio || romaneio === "-") return;
+
+  const painel = document.getElementById("painelEntregas");
+  const resumo = document.getElementById("resumoEntregas");
+  const lista = document.getElementById("listaEntregas");
+
+  painel.style.display = "block";
+  resumo.innerHTML = "";
+  lista.innerHTML = "Carregando entregas...";
+
+  try {
+    const res = await fetch(`${API_BASE}/qrota-entregas?romaneio=${encodeURIComponent(romaneio)}`);
+
+    if (!res.ok) {
+    const textoErro = await res.text();
+    console.error("Erro backend entregas:", textoErro);
+    throw new Error("Erro na API de entregas");
+    }
+
+    const dados = await res.json();
+    desenharPontosEntregas(dados.entregas || []);
+    resumo.innerHTML = `
+      <div class="entrega-kpi"><span>Total</span><strong>${dados.total || 0}</strong></div>
+      <div class="entrega-kpi"><span>Pendentes</span><strong>${dados.pendentes || 0}</strong></div>
+      <div class="entrega-kpi"><span>Baixadas</span><strong>${dados.baixadas || 0}</strong></div>
+      <div class="entrega-kpi"><span>Ocorrências</span><strong>${dados.ocorrencias || 0}</strong></div>
+    `;
+
+    lista.innerHTML = "";
+
+    (dados.entregas || []).forEach(entrega => {
+      const status = entrega.status_entrega || "-";
+
+      let classeStatus = "status-pendente";
+      if (status === "BAIXADA") classeStatus = "status-baixada";
+      if (status === "OCORRENCIA") classeStatus = "status-ocorrencia";
+
+      const item = document.createElement("div");
+      item.className = "entrega-item";
+
+      item.innerHTML = `
+        <div><b>Pedido:</b> ${entrega.id_pedido || "-"}</div>
+        <div><b>NF/Controle:</b> ${entrega.numerocontrole || "-"}</div>
+        <div><b>Status:</b> <span class="${classeStatus}">${status}</span></div>
+        <div><b>Destino:</b> ${entrega.destinatario || "-"}</div>
+        <div><b>Cidade:</b> ${entrega.cidade || "-"} / ${entrega.uf || "-"}</div>
+      `;
+
+      lista.appendChild(item);
+    });
+
+  } catch (erro) {
+    console.error("Erro ao carregar entregas:", erro);
+    lista.innerHTML = "Erro ao carregar entregas.";
+  }
+}
+
+function criarCardMotorista(item, lat, lon, chave) {
+  const lista = document.getElementById("listaMotoristas");
+
+  const card = document.createElement("div");
+  card.className = "motorista-card";
+  card.dataset.chave = chave;
+
+  const statusClass = item.status_romaneio === "ABERTO"
+    ? "badge-aberto"
+    : "badge-finalizado";
+
+  const statusTexto = item.status_romaneio === "ABERTO"
+    ? "EM ROTA"
+    : "FINALIZADO";
+
+  card.innerHTML = `
+    <div class="motorista-top">
+      <div class="motorista-nome">${item.placa || "Sem placa"}</div>
+      <div class="badge ${statusClass}">${statusTexto}</div>
+    </div>
+
+    <div class="motorista-meta">
+      🚚 Atividade: ${item.atividade || "-"}<br>
+      📦 Romaneio: ${item.romaneio || "-"}<br>
+      🧾 Viagem: ${item.id_viagem || "-"}<br>
+      📍 Origem: ${item.origem || "-"}<br>
+      🕒 ${formatarData(item.datahora || item.dh_validacao)}
+    </div>
+  `;
+
+  card.onclick = () => {
+    if (cardAtivo) cardAtivo.classList.remove("ativo");
+    card.classList.add("ativo");
+    cardAtivo = card;
+
+    map.setView([lat, lon], 15);
+
+    if (markers[chave]) {
+      markers[chave].openPopup();
+    }
+
+    carregarTrajeto(item.romaneio);
+    carregarEntregasRomaneio(item.romaneio);
+  };
+
+  lista.appendChild(card);
+}
+
+function montarParamsFiltro() {
+  const params = new URLSearchParams();
+
+  const atividade = document.getElementById("filtroAtividade").value;
+  const somenteAbertos = document.getElementById("filtroAbertos").checked;
+  const viagem = document.getElementById("filtroViagem").value.trim();
+  const romaneio = document.getElementById("filtroRomaneio").value.trim();
+  const origem = document.getElementById("filtroOrigem").value.trim();
+
+  if (atividade) params.append("atividade", atividade);
+  if (somenteAbertos) params.append("abertos", "1");
+  if (viagem) params.append("viagem", viagem);
+  if (romaneio) params.append("romaneio", romaneio);
+  if (origem) params.append("origem", origem);
+
+  return params.toString();
+}
+
+async function carregarAtividades() {
+  const select = document.getElementById("filtroAtividade");
+
+  const res = await fetch(`${API_BASE}/qrota-filtros-atividades`);
+  const dados = await res.json();
+
+  select.innerHTML = `<option value="">Todas atividades</option>`;
+
+  dados.forEach(item => {
+    if (!item.atividade) return;
+
+    const opt = document.createElement("option");
+    opt.value = item.atividade;
+    opt.textContent = `Atividade ${item.atividade}`;
+    select.appendChild(opt);
+  });
+}
+
+async function carregarOrigens() {
+  const select = document.getElementById("filtroOrigem");
+
+  const params = new URLSearchParams();
+
+  const atividade = document.getElementById("filtroAtividade").value;
+  const somenteAbertos = document.getElementById("filtroAbertos").checked;
+  const viagem = document.getElementById("filtroViagem").value.trim();
+  const romaneio = document.getElementById("filtroRomaneio").value.trim();
+
+  if (atividade) params.append("atividade", atividade);
+  if (somenteAbertos) params.append("abertos", "1");
+  if (viagem) params.append("viagem", viagem);
+  if (romaneio) params.append("romaneio", romaneio);
+
+  const res = await fetch(`${API_BASE}/qrota-filtros-origens?${params.toString()}`);
+  const dados = await res.json();
+
+  const origemAtual = select.value;
+
+  select.innerHTML = `<option value="">Todas origens</option>`;
+
+  dados.forEach(item => {
+    if (!item.origem) return;
+
+    const opt = document.createElement("option");
+    opt.value = item.origem;
+    opt.textContent = item.origem;
+    select.appendChild(opt);
+  });
+
+  if ([...select.options].some(opt => opt.value === origemAtual)) {
+    select.value = origemAtual;
+  }
+}
+
+async function iniciar() {
+  await carregarAtividades();
+  await carregarOrigens();
+  await carregarTracking();
+}
+
+async function carregarTracking() {
+  try {
+    const queryString = montarParamsFiltro();
+    const url = queryString
+  ? `${API_BASE}/qrota-tracking?${queryString}`
+  : `${API_BASE}/qrota-tracking`;
+
+    const res = await fetch(url);
+    const dados = await res.json();
+
+    const lista = document.getElementById("listaMotoristas");
+    lista.innerHTML = "";
+
+    const chavesAtuais = new Set();
+
+    let total = 0;
+    let abertos = 0;
+    let finalizados = 0;
+
+    dados.forEach(item => {
+      let lat, lon;
+
+      if (item.status_romaneio === "FINALIZADO") {
+        lat = corrigirCoordenada(item.lat_validacao);
+        lon = corrigirCoordenada(item.lon_validacao);
+      } else {
+        lat = corrigirCoordenada(item.lat);
+        lon = corrigirCoordenada(item.lon);
+      }
+
+        if (!lat || !lon) {
+        if (linhaTrajeto && linhaTrajeto.getLatLngs().length > 0) {
+            const pontos = linhaTrajeto.getLatLngs();
+            const ponto = pontos[Math.floor(Math.random() * pontos.length)];
+            lat = ponto.lat;
+            lon = ponto.lng;
+        } else {
+            return;
+        }
+        }
+
+      const chave = item.romaneio || item.idmotorista;
+      chavesAtuais.add(chave);
+
+      const icon = item.status_romaneio === "ABERTO" ? iconAberto : iconFinalizado;
+      const popup = montarPopup(item, lat, lon);
+
+      if (markers[chave]) {
+        markers[chave].setLatLng([lat, lon]);
+        markers[chave].setIcon(icon);
+        markers[chave].setPopupContent(popup);
+
+        markers[chave].off("popupopen");
+        markers[chave].on("popupopen", () => {
+        carregarTrajeto(item.romaneio);
+        carregarEntregasRomaneio(item.romaneio);
+        });
+
+        markers[chave].off("popupclose");
+        markers[chave].on("popupclose", limparTrajeto);
+
+      } else {
+        markers[chave] = L.marker([lat, lon], { icon })
+          .addTo(map)
+          .bindPopup(popup);
+
+        markers[chave].on("popupopen", () => {
+        carregarTrajeto(item.romaneio);
+        carregarEntregasRomaneio(item.romaneio);
+        });
+        markers[chave].on("popupclose", limparTrajeto);
+      }
+
+      criarCardMotorista(item, lat, lon, chave);
+
+      total++;
+      if (item.status_romaneio === "ABERTO") abertos++;
+      if (item.status_romaneio === "FINALIZADO") finalizados++;
+    });
+
+    Object.keys(markers).forEach(k => {
+      if (!chavesAtuais.has(k)) {
+        map.removeLayer(markers[k]);
+        delete markers[k];
+      }
+    });
+
+    document.getElementById("qtdOnline").innerText = `${total} ONLINE`;
+    document.getElementById("status").innerText =
+      `${abertos} em rota | ${finalizados} finalizados | ${new Date().toLocaleTimeString("pt-BR")}`;
+
+  } catch (erro) {
+    console.error("Erro ao carregar tracking:", erro);
+    document.getElementById("status").innerText = "Erro ao carregar tracking";
+  }
+}
+
+iniciar();
+setInterval(carregarTracking, 10000);
+
+document.getElementById("filtroAtividade")
+  .addEventListener("change", async () => {
+    await carregarOrigens();
+    carregarTracking();
+  });
+
+document.getElementById("filtroAbertos")
+  .addEventListener("change", async () => {
+    await carregarOrigens();
+    carregarTracking();
+  });
+
+document.getElementById("btnFiltrar")
+  .addEventListener("click", async () => {
+    await carregarOrigens();
+    carregarTracking();
+  });
+
+["filtroViagem", "filtroRomaneio", "filtroOrigem"].forEach(id => {
+  document.getElementById(id).addEventListener("keyup", e => {
+    if (e.key === "Enter") carregarTracking();
+  });
+});
+</script>
+
+</body>
+</html>
